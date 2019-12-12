@@ -1,66 +1,167 @@
-var express = require("express");
-var router = express.Router();
+"use strict";
+import express from "express";
+import castle from "@castleio/sdk";
 
-const users = {
-  1: {
+const router = express.Router();
+const castleApi = new castle.Castle({ apiSecret: process.env.CASTLE_API_KEY });
+
+const users = [
+  {
+    id: 1,
+    email: "beattles@example.com",
     username: "beattles",
     password: "cometogether"
   },
-  2: {
+  {
+    id: 2,
+    email: "jcash@example.com",
     username: "jcash",
     password: "walktheline"
   },
-  3: {
+  {
+    id: 3,
+    email: "ndiamond@example.com",
     username: "ndiamond",
     password: "sweetcaroline"
   }
-};
+];
 
 const authenticateUser = function(loginInfo) {
-  if (loginInfo)
-  /* checks if login matches a keyvalue in the users object */
-    for (let key in users) {
-      if (JSON.stringify(loginInfo) === JSON.stringify(users[key])) {
-        return true;
-      }
-    }
-  else {
-    return false;
-  }
+  const userArray = users.filter(user => {
+    return (
+      loginInfo.email === user.email && loginInfo.password === user.password
+    );
+  });
+
+  const validEmail = users.find(user => user.email === loginInfo.email)
+  // check if email is there then send id or just default to null
+  const invalidLogin = {
+    id: validEmail === undefined ? undefined : validEmail['id'],
+    email: loginInfo.email
+  };
+
+  // assuming there is a single user
+  return userArray && userArray.length > 0 ? userArray[0] : invalidLogin;
 };
 
 /* GET home page. */
 router.get("/", function(req, res, next) {
-  console.log(req.session)
-  if (req.session.username) {
-    res.render("index", { username: req.session.username });
+  const userProfile = JSON.parse(JSON.stringify(req.session));
+
+  if (userProfile.username) {
+    res.render("index", {
+      username: req.session.username,
+      userLoggedIn: true,
+      user_id: req.session.user_id
+    });
   } else {
-    res.render("form", { error: false });
+    res.render("form", {
+      error: false,
+      userLoggedIn: false
+    });
   }
 });
 
+const userLoginSucceeded = async (user, req) => {
+  let response;
+  try {
+    const response = await castleApi.authenticate({
+      event: "$login.succeeded",
+      user_id: user.id,
+      user_traits: {
+        email: user.email,
+        registered_at: "2015-02-23T22:28:55.387Z"
+      },
+      context: {
+        ip: req.ip,
+        client_id: req.cookies["__cid"],
+        headers: req.headers
+      }
+    });
+    console.log("login succeeded event")
+    return response;
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const userLoginFailed = async (user, req) => {
+  let response;
+  try {
+    const response = await castleApi.authenticate({
+      event: "$login.failed",
+      user_id: user.id,
+      user_traits: {
+        email: user.email,
+        registered_at: "2015-02-23T22:28:55.387Z"
+      },
+      context: {
+        ip: req.ip,
+        client_id: req.cookies["__cid"],
+        headers: req.headers
+      }
+    });
+    /* return different flows for the various actions */
+    console.log("login failed event")
+    return response;
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const userLogoutSucceeded = async (user, req) => {
+  let response;
+  try {
+    const response = await castleApi.authenticate({
+      event: "$logout.succeeded",
+      user_id: user.id,
+      user_traits: {
+        email: user.email,
+        registered_at: "2015-02-23T22:28:55.387Z"
+      },
+      context: {
+        ip: req.ip,
+        client_id: req.cookies["__cid"],
+        headers: req.headers
+      }
+    });
+    console.log("logout succeeded event")
+    return response;
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 /* POST login page. */
 router.post("/", function(req, res, next) {
-  var authorizedUser = authenticateUser(req.body);
+  const user = authenticateUser(req.body);
 
-  if (authorizedUser) {
-    /* If the user is authorized add username to session */
-    req.session.username = req.body.username;
-    res.render("index", { error: false, username: req.body.username });
+  if (user.password) {
+    userLoginSucceeded(user, req);
+    req.session.email = req.body.email;
+    req.session.user_id = user.id;
+    res.render("index", {
+      error: false,
+      username: user.username,
+      user_id: user.id,
+      userLoggedIn: true
+    });
   } else {
-    /* Render login form and display error */
-    res.render("form", { error: true });
+    userLoginFailed(user, req)
+    res.render("form", { error: true, userLoggedIn: false });
   }
 });
 
 /* POST logout route. */
 router.post("/logout", function(req, res, next) {
+  userLogoutSucceeded(req.session, req);
   req.session.destroy(err => {
     if (err) {
       return console.log(err);
     }
+
     res.redirect("/");
   });
 });
 
-module.exports = router;
+export { router as indexRouter };
