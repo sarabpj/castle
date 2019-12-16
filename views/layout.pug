@@ -6,7 +6,7 @@ html
     title Castle
     script(src='https://d2t77mnxyo7adj.cloudfront.net/v1/c.js?197182892747318')
     script(type='text/javascript').
-      if (userLoggedIn) _castle('identify', #{user_id});
+      if (user_id != undefined ) _castle('identify', #{user_id});
     link(rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous")
 
   body
