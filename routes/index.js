@@ -14,7 +14,7 @@ const router = express.Router();
 router.get("/", function(req, res, next) {
   const userProfile = JSON.parse(JSON.stringify(req.session));
 
-  if (userProfile.username) {
+  if (req.session.email) {
     res.render("index", {
       username: req.session.username,
       userLoggedIn: true,
@@ -59,12 +59,9 @@ router.post("/challenge", function(req, res, next) {
   if(req.body.answer === 'dog'){
     req.session.email = req.body.email;
     req.session.user_id = req.body.user_id;
+    req.session.username = req.body.username;
 
-    res.render("index", {
-      username: req.body.username,
-      userLoggedIn: true,
-      user_id: req.session.user_id
-    });
+    res.redirect("/");
   }else{
     res.render("securityQuestionForm", {
       error: true,

@@ -1,6 +1,7 @@
 "use strict";
 import castle from '@castleio/sdk';
-import url from 'url'
+import url from 'url';
+import session from "express-session";
 
 const castleApi = new castle.Castle({ apiSecret: process.env.CASTLE_API_KEY });
 
