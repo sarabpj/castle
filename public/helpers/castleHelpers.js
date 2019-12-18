@@ -1,10 +1,10 @@
 "use strict";
-import castle from "@castleio/sdk";
+import castle from '@castleio/sdk';
+import url from 'url'
 
 const castleApi = new castle.Castle({ apiSecret: process.env.CASTLE_API_KEY });
 
-
-export const castleLoginSucceeded = async (user, req) => {
+const castleLoginSucceeded = async (user, req, res) => {
   let response;
   try {
     const response = await castleApi.authenticate({
@@ -12,7 +12,7 @@ export const castleLoginSucceeded = async (user, req) => {
       user_id: user.id,
       user_traits: {
         email: user.email,
-        registered_at: "2015-02-23T22:28:55.387Z"
+        registered_at: user.registered_at
       },
       context: {
         ip: req.ip,
@@ -20,15 +20,51 @@ export const castleLoginSucceeded = async (user, req) => {
         headers: req.headers
       }
     });
-    // I think the session should only be set if approved is retur
-    console.log("login succeeded event")
+    switch(response.action) {
+       case "allow": {
+          console.log("Welcome user");
+          req.session.email = req.body.email;
+          req.session.user_id = user.id;
+          return res.render("index", {
+            error: false,
+            username: user.username,
+            user_id: user.id,
+            userLoggedIn: true,
+            action: "allow"
+          });
+          break;
+       }
+       case "challenge": {
+          console.log("Ask security question");
+          return  res.redirect(url.format({
+            pathname:"/challenge",
+            query: {
+              username: user.username,
+              user_id: user.id,
+              email: user.email,
+              action: "challenge",
+              error: false,
+              userLoggedIn: false
+            }
+          }));
+          break;
+       }
+       case "deny": {
+          console.log("Send user and team warning");
+          break;
+       }
+       default: {
+          console.log("Invalid option");
+          break;
+       }
+     }
     return response;
   } catch (e) {
     console.error(e);
   }
 };
 
-export const castleLoginFailed = async (user, req) => {
+const castleLoginFailed = async (user, req) => {
   let response;
   try {
     const response = await castleApi.authenticate({
@@ -36,7 +72,7 @@ export const castleLoginFailed = async (user, req) => {
       user_id: user.id,
       user_traits: {
         email: user.email,
-        registered_at: "2015-02-23T22:28:55.387Z"
+        registered_at: user.registered_at
       },
       context: {
         ip: req.ip,
@@ -44,16 +80,14 @@ export const castleLoginFailed = async (user, req) => {
         headers: req.headers
       }
     });
-    /* return different flows for the various actions */
-    console.log("login failed event")
+
     return response;
   } catch (e) {
     console.error(e);
   }
 };
 
-// update to use track
-export const castleLogoutSucceeded = async (user, req) => {
+const castleLogoutSucceeded = async (user, req) => {
   let response;
   try {
     const response = await castleApi.authenticate({
@@ -61,7 +95,7 @@ export const castleLogoutSucceeded = async (user, req) => {
       user_id: user.id,
       user_traits: {
         email: user.email,
-        registered_at: "2015-02-23T22:28:55.387Z"
+        registered_at: user.registered_at
       },
       context: {
         ip: req.ip,
@@ -69,10 +103,11 @@ export const castleLogoutSucceeded = async (user, req) => {
         headers: req.headers
       }
     });
-    console.log("logout succeeded event")
+    console.log(response)
     return response;
   } catch (e) {
     console.error(e);
   }
 };
 
+export { castleLoginSucceeded, castleLoginFailed, castleLogoutSucceeded };
